@@ -1,0 +1,281 @@
+---
+title: "Covid_19"
+author: "Michel Roland"
+date: "2025-04-02"
+output: html_document
+---
+
+
+This Project focuses on a pneumonia of unknown cause detected in Wuhan, China. It was first internationally reported from China on 31 December 2019. Today we know this virus as Coronavirus. COVID-19 which stands for COronaVIrus Disease is the disease caused by this virus. Since then, the world has been engaged in the fight against this pandemic. Several measures have therefore been taken to "flatten the curve". We have consequently experienced social distancing and many people have passed away as well.
+
+Our analysis tries to provide an answer to this question: **Which countries have reported the highest number of positive cases in relation to the number of tests conducted?**
+
+
+
+```{r}
+library(readr)
+library(tibble)
+
+setwd("/home/student24/Desktop/Data_Science/Covid_19")
+cov_19<-read.csv("covid19.csv")
+```
+
+
+```{r}
+# Dimension of the dataframe
+dim(cov_19)
+```
+
+```{r}
+# Determine the column names of the cov_19 dataframe
+vector_cols <- colnames(cov_19)
+
+# Display the content of the vector_cols variable
+print(vector_cols)
+
+# Check the structure of the vector_cols variable
+str(vector_cols)
+
+```
+```{r}
+# Display the first few rows of the cov_19
+
+head(cov_19)
+```
+
+
+
+```{r}
+# Summary of the dataset
+glimpse(cov_19)
+```
+```{r}
+# Filter the rows where Province_State is "All States" and remove the Province_State column
+cov_19_all_states <- cov_19[cov_19$Province_State == "All States", ]
+
+# Remove the Province_State column
+cov_19_all_states <- cov_19_all_states[, !names(cov_19_all_states) %in% "Province_State"]
+
+# Display the filtered dataset
+head(cov_19_all_states)
+
+```
+
+We can remove the Province_State column without losing information because we are focusing only on the country-level data, where the Province_State value is "All States". This column no longer holds any useful information at the country level, as the data is already aggregated for the entire country, and we don't need to keep it for further analysis.
+
+## Isolating the useful columns
+
+At this step, we continue our work with dataframes. Our goal is to extract the data that is relevant to answer our questions.
+
+Revisiting the description of the dataset columns, we can notice that there are columns that provide daily information and others that provide cumulative information. 
+
+Therefore, we should handle cases involving columns with cumulative and daily data separately, as combining them could lead to biased analysis. Comparing a column with cumulative data to one with daily data would result in inaccurate conclusions. This is an important consideration to address early in the project to ensure a more accurate analysis of the dataset.
+
+From this point onward, we will primarily focus on the daily data. So, let's extract the columns that correspond to daily measurements.
+
+```{r}
+# Select the columns related to daily measures
+cov_19_all_states_daily <- cov_19_all_states[, c("Date", "Country_Region", "active", "hospitalizedCurr", "daily_tested", "daily_positive")]
+
+# Display the first few rows of the new dataframe
+head(cov_19_all_states_daily)
+
+```
+
+## Extracting the Top Ten Countries with Most Covid-19 Cases
+
+Our goal is to identify the top ten countries with the highest number of COVID-19 cases, such as tests conducted, positive cases, active cases, and hospitalized cases. To do this, we first aggregate the daily data by summing the tests, positive, active, and hospitalized cases for each country. Then, we rank the countries based on the total number of tests and extract the top ten. This will give us the countries with the highest testing efforts and case counts.
+
+```{r}
+# Load the dplyr package
+library(dplyr)
+
+# Summarize the data by grouping by Country_Region and computing the sum
+cov_19_all_states_daily_sum <- cov_19_all_states_daily %>%
+  group_by(Country_Region) %>%
+  summarize(
+    tested = sum(daily_tested, na.rm = TRUE),
+    positive = sum(daily_positive, na.rm = TRUE),
+    active = sum(active, na.rm = TRUE),
+    hospitalized = sum(hospitalizedCurr, na.rm = TRUE)
+  ) %>%
+  arrange(desc(tested))  # Arrange by the number of tests in descending order
+
+# Display the summarized dataframe
+print(cov_19_all_states_daily_sum)
+
+
+
+```
+
+```{r}
+library(ggplot2)
+
+# Convert the Date column to Date format
+cov_19_all_states_daily$Date <- as.Date(cov_19_all_states_daily$Date, format="%Y-%m-%d")
+
+# Graph to visualize the evolution of tests and positive cases over time for a specific country
+ggplot(cov_19_all_states_daily[cov_19_all_states_daily$Country_Region == "United States", ]) +
+  geom_line(aes(x = Date, y = daily_tested, color = "Tests"), linewidth = 1) +
+  geom_line(aes(x = Date, y = daily_positive, color = "Positives"), linewidth = 1) +
+  labs(title = "Evolution of Tests and Positive Cases - United States", x = "Date", y = "Number of Cases/Tests") +
+  scale_color_manual(values = c("Tests" = "blue", "Positives" = "red")) +
+  theme_minimal()
+
+
+```
+
+This plot shows the evolution of **daily tests** (blue line) and **daily positive cases** (red line) in the United States over the observed period. From **mid-March**, a significant increase in the number of tests conducted is noticeable, which could indicate an **expansion of testing capacity** and the **broadening of testing criteria** to detect more COVID-19 cases.
+
+This rise in tests is likely related to **increased efforts** by health authorities to **identify and control the spread of the virus**. It may also explain the parallel increase in positive cases detected (red line).
+
+
+```{r}
+# Extract the top ten countries based on the number of tests
+cov_top_10 <- head(cov_19_all_states_daily_sum, 10)
+
+# Display the top ten countries
+print(cov_top_10)
+
+```
+```{r}
+# Pie chart for positive cases
+ggplot(cov_top_10, aes(x = "", y = positive, fill = Country_Region)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  labs(
+    title = "Proportion of Positive Cases by Country",
+    fill = "Country"
+  ) +
+  theme_void()
+```
+
+
+
+## Identifying the Highest Positive Against Tested Cases
+
+Our goal in this step is to answer this question: Which countries have had the highest number of positive cases against the number of tests?
+
+```{r}
+# Create the vectors from the covid_top_10 dataframe
+countries <- cov_top_10$Country_Region
+tested_cases <- cov_top_10$tested
+positive_cases <- cov_top_10$positive
+active_cases <- cov_top_10$active
+hospitalized_cases <- cov_top_10$hospitalized
+
+# Assign the country names as names for the vectors
+names(tested_cases) <- countries
+names(positive_cases) <- countries
+names(active_cases) <- countries
+names(hospitalized_cases) <- countries
+
+# Identify the ratio of positive cases to tested cases
+positive_tested_ratio <- positive_cases / tested_cases
+
+# Identify the top three countries based on the ratio
+positive_tested_top_3 <- sort(positive_tested_ratio, decreasing = TRUE)[1:3]
+
+# Display the top three countries with their ratio
+print(positive_tested_top_3)
+
+```
+
+```{r}
+# Calculating the positive tested ratio
+cov_top_10$positive_tested_ratio <- cov_top_10$positive / cov_top_10$tested
+
+# Boxplot to compare the ratios between countries
+ggplot(cov_top_10, aes(x = reorder(Country_Region, positive_tested_ratio), y = positive_tested_ratio)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Positive Tested Ratios", x = "Countries", y = "Positive Tested Ratio") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+This plot shows that, among the countries affected, these three countries have the highest ratios of positive cases relative to the tests performed.
+
+## Keeping relevant information
+
+Our goal is to find a way to keep all the information available for the top three countries that have had the highest number of positive cases against the number of tests carried out.
+
+```{r}
+# Create the vectors
+united_kingdom <- c(0.11, 1473672, 166909, 0, 0)
+united_states <- c(0.10, 17282363, 1877179, 0, 0)
+turkey <- c(0.08, 2031192, 163941, 2980960, 0)
+
+# Combine the vectors into a matrix
+covid_mat <- rbind(united_kingdom, united_states, turkey)
+
+# Rename the columns
+colnames(covid_mat) <- c("Ratio", "tested", "positive", "active", "hospitalized")
+
+# Display the matrix
+print(covid_mat)
+
+```
+
+## Summary of Insights
+
+```{r}
+# Create the character variable for the question
+question <- "Which countries have had the highest number of positive cases against the number of tests?"
+
+# Create the named vector for the answer
+answer <- c("Positive tested cases" = positive_tested_top_3)
+
+# Create a list of dataframes
+dataframes_list <- list(cov_19_all_states, cov_19_all_states_daily, cov_19_all_states_daily_sum)
+
+# Create a list of matrices
+matrices_list <- list(covid_mat)
+
+# Create a list of vectors
+vectors_list <- list(countries, tested_cases, positive_cases, active_cases, hospitalized_cases)
+
+# Create a named list that contains the three previous lists
+data_structure_list <- list(
+  dataframes = dataframes_list,
+  matrices = matrices_list,
+  vectors = vectors_list
+)
+
+# Create a list that contains the question, answer, and data_structure_list
+covid_analysis_list <- list(
+  question = question,
+  answer = answer,
+  data_structure_list = data_structure_list
+)
+
+# Display the second element of the list (answer)
+print(covid_analysis_list[[2]])
+
+```
+The values represent the ratios for each country:
+
+- **United Kingdom**: 0.11326
+- **United States**: 0.10862
+- **Turkey**: 0.08071
+
+These ratios indicate the proportion of positive COVID-19 cases relative to the total tests conducted in each country. For instance:
+
+- In the **United Kingdom**, for every test conducted, approximately **11.33%** of the results were positive.
+- In the **United States**, this proportion is about **10.86%**.
+- In **Turkey**, it is about **8.07%**.
+
+
+
+```{r}
+# Check column names before merge
+colnames(world_map)
+colnames(cov_19_all_states_daily_sum)
+
+# Perform merge and check the result
+cov_top_10_map <- merge(world_map, cov_19_all_states_daily_sum, by.x = "NAME", by.y = "Country_Region", all.x = TRUE)
+
+# Check the merged data
+head(cov_top_10_map)
+
+```
+
