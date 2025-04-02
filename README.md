@@ -6,7 +6,7 @@ Welcome to this repository dedicated to my data science projects. This repositor
 
 Each folder represents an individual project with its own `README.md` detailing its objective, data, and analyses.
 
-Example structure:
+Structure:
 ```
 data-science-project/
 │── project-1/
@@ -22,18 +22,13 @@ data-science-project/
 │── README.md  # This file (global overview)
 ```
 
-## Included Projects
-
-- **[Project 1: Project Name](link_to_readme)** - Brief description
-- **[Project 2: Project Name](link_to_readme)** - Brief description
-- *(Add more projects here as needed)*
 
 ## Technologies Used
 
 This repository includes projects using:
 - Python (Pandas, NumPy, Scikit-learn, Matplotlib, etc.)
 - Jupyter Notebook
-- SQL *(if applicable)*
+- SQL
 - Other relevant tools
 
 ## Objective
